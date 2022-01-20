@@ -71,10 +71,29 @@
         $('search').on('keyup', search);
       });
     </script>
+    <style>
+      .button {
+        background-color: #1c87c9;
+        border: none;
+        color: white;
+        padding: 20px 34px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 20px;
+        margin: 4px 2px;
+        cursor: pointer;
+      }
+      .currentPage {
+        color: blue;
+      }
+    </style>
   </head>
   <body class="directory">
     <input id="search" type="text" placeholder="Search" autocomplete="off" />
     <div id="wrapper">
+      {nav}
+      <h1><a href='/ring/record' class="button">Record Video Now</a></h1>
       <h1><a href="/">~</a>{linked-path}</h1>
       {files}
     </div>

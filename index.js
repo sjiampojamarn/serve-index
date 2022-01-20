@@ -187,8 +187,38 @@ serveIndex.html = function _html(req, res, files, next, dir, showUp, icons, path
   stat(path, files, function (err, fileList) {
     if (err) return next(err);
 
+    // Hide on demand files
+    var hide_on_demand = parseInt(req.query.hide_on_demand);
+    if (!hide_on_demand) {
+      hide_on_demand = 0;
+    }
+
+    if (hide_on_demand > 0) {
+      const regex = new RegExp("on_demand");
+      fileList = fileList.filter((str) => {
+        return !str.name.match(regex);
+      });
+    }
+
     // sort file list
     fileList.sort(fileSort);
+
+    // paging
+    var page = parseInt(req.query.page);
+    if (!page) {
+      page = 0;
+    }
+    var page_start = 24 * page;
+    var page_end = 24 * (page + 1);
+    
+    if (page_start >= fileList.lenght) {
+      page_start = fileList.length - 1;
+    }
+    if (page_end >= fileList.lenght) {
+      page_end = fileList.length - 1;
+    }
+    var total_files = fileList.length;
+    fileList = fileList.slice(page_start, page_end);
 
     // read stylesheet
     fs.readFile(stylesheet, 'utf8', function (err, style) {
@@ -201,7 +231,10 @@ serveIndex.html = function _html(req, res, files, next, dir, showUp, icons, path
         fileList: fileList,
         path: path,
         style: style,
-        viewName: view
+        viewName: view,
+        page: page,
+        total_files: total_files,
+        hide_on_demand: hide_on_demand
       };
 
       // render html
@@ -253,6 +286,28 @@ serveIndex.plain = function _plain (req, res, files, next, dir, showUp, icons, p
 
     send(res, 'text/plain', body)
   })
+};
+
+function createHtmlNav(page, total_files, hide_on_demand) {
+  var html = '<h1>Page: ';
+  var i;
+  var current_page = 0;
+  for (i = 0; i < total_files; i += 24) {
+    if (current_page == page) {
+      html += '<b class=currentPage>' + escapeHtml(current_page) + '</b> ';
+    } else {
+      html += '<a href="./?hide_on_demand=' + escapeHtml(hide_on_demand) + '&page=' + escapeHtml(current_page) + '">' + escapeHtml(current_page) + '</a> ';
+    }
+    current_page++;
+  }
+  html += '<p>';
+  if (escapeHtml(hide_on_demand) > '0') { 
+    html += '<a href="./?hide_on_demand=0&page=0">Show All Files</a>';
+  } else {
+    html += '<a href="./?hide_on_demand=1&page=0">Hide On-demand</a>';
+  }
+  html += "</h1>";
+  return html;
 };
 
 /**
@@ -328,6 +383,7 @@ function createHtmlRender(template) {
 
       var body = str
         .replace(/\{style\}/g, locals.style.concat(iconStyle(locals.fileList, locals.displayIcons)))
+        .replace(/\{nav\}/g, createHtmlNav(locals.page, locals.total_files, locals.hide_on_demand))
         .replace(/\{files\}/g, createHtmlFileList(locals.fileList, locals.directory, locals.displayIcons, locals.viewName))
         .replace(/\{directory\}/g, escapeHtml(locals.directory))
         .replace(/\{linked-path\}/g, htmlPath(locals.directory));
@@ -349,7 +405,7 @@ function fileSort(a, b) {
   }
 
   return Number(b.stat && b.stat.isDirectory()) - Number(a.stat && a.stat.isDirectory()) ||
-    String(a.name).toLocaleLowerCase().localeCompare(String(b.name).toLocaleLowerCase());
+    String(b.name).toLocaleLowerCase().localeCompare(String(a.name).toLocaleLowerCase());
 }
 
 /**
